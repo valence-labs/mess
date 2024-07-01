@@ -18,6 +18,17 @@ from mess.structure import molecule
 __all__ = ["molecule", "Hamiltonian", "minimise", "basisset"]
 
 
+def parse_bool(value: str) -> bool:
+    value = value.lower()
+
+    if value in ("y", "yes", "t", "true", "on", "1"):
+        return True
+    elif value in ("n", "no", "f", "false", "off", "0"):
+        return False
+    else:
+        raise ValueError("Failed to parse {value} as a boolean")
+
+
 def _setup_env():
     import os
     import os.path as osp
@@ -25,7 +36,7 @@ def _setup_env():
     from jax import config
     from jax.experimental.compilation_cache import compilation_cache as cc
 
-    enable_fp64 = bool(os.environ.get("MESS_ENABLE_FP64", True))
+    enable_fp64 = parse_bool(os.environ.get("MESS_ENABLE_FP64", "True"))
     config.update("jax_enable_x64", enable_fp64)
 
     cache_dir = str(os.environ.get("MESS_CACHE_DIR", osp.expanduser("~/.cache/mess")))
