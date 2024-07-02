@@ -60,6 +60,5 @@ filterwarnings = [
 extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
-select = ["E", "F", "CPY001"]
+select = ["E", "F"]
 ignore = ["E741"]
-flake8-copyright.author = "Graphcore"
