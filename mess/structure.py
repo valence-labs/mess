@@ -132,5 +132,5 @@ def cubic_hydrogen(n: int) -> Structure:
 
     b = 1.4 * np.arange(0, n)
     pos = np.stack(np.meshgrid(b, b, b)).reshape(3, -1).T
-    pos -= np.mean(pos, axis=0)
-    return Structure(np.ones(pos.shape[0]), pos)
+    pos = np.round(pos - np.mean(pos, axis=0), decimals=3)
+    return Structure(np.ones(pos.shape[0], dtype=np.int64), pos)
