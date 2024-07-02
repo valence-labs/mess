@@ -2,6 +2,7 @@
 """Many electron Hamiltonian with Density Functional Theory or Hartree-Fock."""
 
 from typing import Literal, Optional, Tuple, get_args
+from functools import partial
 
 import equinox as eqx
 import jax
@@ -245,12 +246,15 @@ class Hamiltonian(eqx.Module):
         return C
 
 
-@jax.jit
-def minimise(H: Hamiltonian) -> Tuple[ScalarLike, FloatNxN, optx.Solution]:
+@partial(jax.jit, static_argnames="max_steps")
+def minimise(
+    H: Hamiltonian, max_steps: Optional[int] = None
+) -> Tuple[ScalarLike, FloatNxN, optx.Solution]:
     """Solve for the electronic coefficients that minimise the total energy
 
     Args:
         H (Hamiltonian): the Hamiltonian for the given basis set and molecular structure
+        max_steps (Optional[int]): maximum number of minimiser steps. Defaults to None
 
     Returns:
         Tuple[ScalarLike, FloatNxN, optimistix.Solution]: Tuple with elements:
@@ -266,7 +270,7 @@ def minimise(H: Hamiltonian) -> Tuple[ScalarLike, FloatNxN, optx.Solution]:
 
     solver = optx.BFGS(rtol=1e-5, atol=1e-6)
     Z = jnp.eye(H.basis.num_orbitals)
-    sol = optx.minimise(f, solver, Z)
+    sol = optx.minimise(f, solver, Z, max_steps=max_steps)
     C = H.orthonormalise(sol.value)
     P = H.basis.density_matrix(C)
     E_elec = H(P)
