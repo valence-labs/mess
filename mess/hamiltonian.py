@@ -246,20 +246,29 @@ class Hamiltonian(eqx.Module):
         return C
 
 
-@partial(jax.jit, static_argnames="max_steps")
+@partial(jax.jit, static_argnames=("max_steps", "atol", "rtol"))
 def minimise(
-    H: Hamiltonian, max_steps: Optional[int] = None
+    H: Hamiltonian,
+    max_steps: Optional[int] = None,
+    atol: float = 1e-6,
+    rtol: float = 1e-5,
 ) -> Tuple[ScalarLike, FloatNxN, optx.Solution]:
     """Solve for the electronic coefficients that minimise the total energy
 
+    This function takes a Hamiltonian built for a given basis set and molecular
+    structure, and finds the electronic coefficients that minimise the total energy.
+    The optimisation is performed using the BFGS algorithm.
+
     Args:
-        H (Hamiltonian): the Hamiltonian for the given basis set and molecular structure
-        max_steps (Optional[int]): maximum number of minimiser steps. Defaults to None
+        H (Hamiltonian): The Hamiltonian for a given basis set and molecular structure.
+        max_steps (Optional[int]): Maximum number of minimizer steps. Defaults to None.
+        atol (float): Absolute tolerance for convergence. Defaults to 1e-6.
+        rtol (float): Relative tolerance for convergence. Defaults to 1e-5.
 
     Returns:
-        Tuple[ScalarLike, FloatNxN, optimistix.Solution]: Tuple with elements:
+        Tuple[ScalarLike, FloatNxN, optimistix.Solution]: A tuple containing:
             - total energy in atomic units
-            - coefficient matrix C that minimises the Hamiltonian
+            - coefficient matrix C that minimizes the Hamiltonian
             - the optimistix.Solution object
     """
 
@@ -268,7 +277,7 @@ def minimise(
         P = H.basis.density_matrix(C)
         return H(P)
 
-    solver = optx.BFGS(rtol=1e-5, atol=1e-6)
+    solver = optx.BFGS(atol=atol, rtol=rtol)
     Z = jnp.eye(H.basis.num_orbitals)
     sol = optx.minimise(f, solver, Z, max_steps=max_steps)
     C = H.orthonormalise(sol.value)
