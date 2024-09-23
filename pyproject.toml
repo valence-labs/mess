@@ -8,7 +8,7 @@ authors = [{ name = "Hatem Helal", email = "hatem@valencelabs.com" }]
 description = "MESS: Modern Electronic Structure Simulations"
 readme = "README.md"
 license = { text = "MIT License" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",

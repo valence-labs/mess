@@ -49,7 +49,7 @@ feedback as [issues](https://github.com/valence-labs/mess/issues).
 pip install git+https://github.com/valence-labs/mess.git
 ```
 
-Requires Python 3.10+ and we recommend [installing JAX](https://jax.readthedocs.io/en/latest/installation.html) for your target system (e.g. CPU, GPU, etc).
+Requires Python 3.11+ and we recommend [installing JAX](https://jax.readthedocs.io/en/latest/installation.html) for your target system (e.g. CPU, GPU, etc).
 
 
 ## Citation
