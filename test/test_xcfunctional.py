@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 from functools import partial
 
 import numpy as np

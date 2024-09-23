@@ -1,7 +1,7 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 """Many electron Hamiltonian with Density Functional Theory or Hartree-Fock."""
 
 from typing import Literal, Optional, Tuple, get_args
+from functools import partial
 
 import equinox as eqx
 import jax
@@ -245,17 +245,29 @@ class Hamiltonian(eqx.Module):
         return C
 
 
-@jax.jit
-def minimise(H: Hamiltonian) -> Tuple[ScalarLike, FloatNxN, optx.Solution]:
+@partial(jax.jit, static_argnames=("max_steps", "atol", "rtol"))
+def minimise(
+    H: Hamiltonian,
+    max_steps: Optional[int] = None,
+    atol: float = 1e-6,
+    rtol: float = 1e-5,
+) -> Tuple[ScalarLike, FloatNxN, optx.Solution]:
     """Solve for the electronic coefficients that minimise the total energy
 
+    This function takes a Hamiltonian built for a given basis set and molecular
+    structure, and finds the electronic coefficients that minimise the total energy.
+    The optimisation is performed using the BFGS algorithm.
+
     Args:
-        H (Hamiltonian): the Hamiltonian for the given basis set and molecular structure
+        H (Hamiltonian): The Hamiltonian for a given basis set and molecular structure.
+        max_steps (Optional[int]): Maximum number of minimizer steps. Defaults to None.
+        atol (float): Absolute tolerance for convergence. Defaults to 1e-6.
+        rtol (float): Relative tolerance for convergence. Defaults to 1e-5.
 
     Returns:
-        Tuple[ScalarLike, FloatNxN, optimistix.Solution]: Tuple with elements:
+        Tuple[ScalarLike, FloatNxN, optimistix.Solution]: A tuple containing:
             - total energy in atomic units
-            - coefficient matrix C that minimises the Hamiltonian
+            - coefficient matrix C that minimizes the Hamiltonian
             - the optimistix.Solution object
     """
 
@@ -264,9 +276,9 @@ def minimise(H: Hamiltonian) -> Tuple[ScalarLike, FloatNxN, optx.Solution]:
         P = H.basis.density_matrix(C)
         return H(P)
 
-    solver = optx.BFGS(rtol=1e-5, atol=1e-6)
+    solver = optx.BFGS(atol=atol, rtol=rtol)
     Z = jnp.eye(H.basis.num_orbitals)
-    sol = optx.minimise(f, solver, Z)
+    sol = optx.minimise(f, solver, Z, max_steps=max_steps)
     C = H.orthonormalise(sol.value)
     P = H.basis.density_matrix(C)
     E_elec = H(P)

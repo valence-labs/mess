@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mess"
-authors = [{ name = "Graphcore Research", email = "contact@graphcore.ai" }]
+authors = [{ name = "Hatem Helal", email = "hatem@valencelabs.com" }]
 description = "MESS: Modern Electronic Structure Simulations"
 readme = "README.md"
 license = { text = "MIT License" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
@@ -60,6 +60,5 @@ filterwarnings = [
 extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
-select = ["E", "F", "CPY001"]
+select = ["E", "F"]
 ignore = ["E741"]
-flake8-copyright.author = "Graphcore"

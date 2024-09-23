@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 """Discretised sampling of orbitals and charge density."""
 
 from typing import Optional, Tuple, Union

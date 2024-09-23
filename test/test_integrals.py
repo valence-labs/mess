@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 import jax.numpy as jnp
 import numpy as np
 import pytest

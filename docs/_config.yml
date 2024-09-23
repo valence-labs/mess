@@ -2,7 +2,7 @@
 # Learn more at https://jupyterbook.org/customize/config.html
 
 title: "MESS"
-author: "Graphcore Research"
+author: "MESS Authors"
 copyright: "2024"
 
 # Force re-execution of notebooks on each build.
@@ -31,7 +31,7 @@ bibtex_bibfiles:
 
 # Information about where the book exists on the web
 repository:
-  url: https://github.com/graphcore-research/mess
+  url: https://github.com/valence-labs/mess
   path_to_book: docs
   branch: main
 
@@ -61,7 +61,7 @@ sphinx:
     html_theme: sphinx_book_theme
     html_theme_options:
       navigation_with_keys: False
-      repository_url: https://github.com/graphcore-research/mess
+      repository_url: https://github.com/valence-labs/mess
       repository_branch: main
       path_to_docs: docs
       launch_buttons:

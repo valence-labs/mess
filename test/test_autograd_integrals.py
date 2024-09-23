@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 import numpy as np
 from numpy.testing import assert_allclose
 

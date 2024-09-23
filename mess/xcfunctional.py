@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 """Core functions for common approximations to the exchange-correlation functional"""
 
 import jax

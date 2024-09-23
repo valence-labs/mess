@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 """Interoperation tools for working across MESS, PySCF, and PyQuante."""
 
 from typing import Tuple

@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 """Container for molecular structures"""
 
 from typing import List
@@ -111,3 +110,26 @@ def nuclear_energy_and_force(structure: Structure):
     pos, rest = eqx.partition(structure, lambda x: id(x) == id(structure.position))
     E, grad = energy_and_grad(pos, rest)
     return E, -grad.position
+
+
+def cubic_hydrogen(n: int) -> Structure:
+    """
+    Builds a Structure of hydrogen atoms arranged in a simple cubic lattice.
+
+    Args:
+        n (int): The number of hydrogen atoms for the cubic cell. For example, n=4 will
+        build a 4x4x4 cubic lattice.
+
+    Raises:
+        ValueError: If n is less than 1.
+
+    Returns:
+        Structure: A Structure object representing the cubic lattice of hydrogen atoms.
+    """
+    if n < 1:
+        raise ValueError("Expect at least one hydrogen atom in cubic lattice")
+
+    b = 1.4 * np.arange(0, n)
+    pos = np.stack(np.meshgrid(b, b, b)).reshape(3, -1).T
+    pos = np.round(pos - np.mean(pos, axis=0), decimals=3)
+    return Structure(np.ones(pos.shape[0], dtype=np.int64), pos)

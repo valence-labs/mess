@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 """Special mathematical functions not readily available in JAX."""
 
 from functools import partial
