@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 """
 JAX implementation for integrals over Gaussian basis functions.
 

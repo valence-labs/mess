@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 """automatic differentiation of atomic orbital integrals"""
 
 from functools import partial

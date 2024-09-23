@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 """Many electron Hamiltonian with Density Functional Theory or Hartree-Fock."""
 
 from typing import Literal, Optional, Tuple, get_args

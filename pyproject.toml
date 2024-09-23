@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mess"
-authors = [{ name = "Graphcore Research", email = "contact@graphcore.ai" }]
+authors = [{ name = "Hatem Helal", email = "hatem@valencelabs.com" }]
 description = "MESS: Modern Electronic Structure Simulations"
 readme = "README.md"
 license = { text = "MIT License" }

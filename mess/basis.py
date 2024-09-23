@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 """basis sets of Gaussian type orbitals"""
 
 from typing import Tuple
@@ -114,7 +113,7 @@ def basisset(structure: Structure, basis_name: str = "sto-3g") -> Basis:
 
     bse_basis = get_basis(
         basis_name,
-        elements=structure.atomic_symbol,
+        elements=structure.atomic_number.tolist(),
         uncontract_spdf=True,
         uncontract_general=True,
     )

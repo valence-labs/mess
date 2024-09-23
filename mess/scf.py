@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 """Vanilla self-consistent field solver implementation."""
 
 import jax.numpy as jnp

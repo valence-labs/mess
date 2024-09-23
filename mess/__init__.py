@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 """MESS: Modern Electronic Structure Simulations
 
 The mess simulation environment can be customised by setting the following environment

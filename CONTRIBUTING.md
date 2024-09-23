@@ -2,7 +2,7 @@
 
 We are interested in hearing any and all feedback so feel free to raise any questions,
 bugs encountered, or enhancement requests as
-[Issues](https://github.com/graphcore-research/mess/issues).
+[Issues](https://github.com/valence-labs/mess/issues).
 
 ## Setting up a development environment
 

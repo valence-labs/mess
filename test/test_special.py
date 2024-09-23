@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Graphcore Ltd. All rights reserved.
 import jax.numpy as jnp
 import pytest
 from numpy.testing import assert_allclose
