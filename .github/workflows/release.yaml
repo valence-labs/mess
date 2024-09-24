@@ -27,17 +27,18 @@ jobs:
       - name: Checkout the code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - name: Setup mamba
+        uses: mamba-org/setup-micromamba@v1
         with:
-          python-version: '3.11'
-          cache: pip
-
-      #- name: Install requirements
-      #  run: |
-      #    pip install -U pip
-      #    pip install .[dev]
-
+          environment-name: my_env
+          cache-environment: true
+          cache-downloads: true
+          create-args: >-
+            python=3.11
+            pip
+            semver
+            python-build
+            setuptools_scm
 
       - name: Check the version is valid semver
         run: |
@@ -116,19 +117,3 @@ jobs:
         with:
           tag_name: ${{ inputs.release-version }}
           body: ${{steps.github_release.outputs.changelog}}
-
-      - name: Build book
-        run: |
-          jupyter-book build docs
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v2
-        with:
-          path: "docs/_build/html"
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v2
