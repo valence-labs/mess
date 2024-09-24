@@ -117,4 +117,3 @@ jobs:
         with:
           tag_name: ${{ inputs.release-version }}
           body: ${{steps.github_release.outputs.changelog}}
-
