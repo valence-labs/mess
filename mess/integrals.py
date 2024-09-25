@@ -15,8 +15,6 @@ Related work:
     open-ended approach for one-electron integrals with Gaussian bases. Journal of
     computational chemistry. 1990 Jan;11(1):105-11.
     <https://doi.org/10.1002/jcc.540110113>
-
-[2] PyQuante: <https://github.com/rpmuller/pyquante2/>
 """
 
 from dataclasses import asdict

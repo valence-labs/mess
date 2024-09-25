@@ -30,7 +30,7 @@ dependencies = [
   "py3Dmol",
   "basis_set_exchange",
   "sympy",
-  "pyquante2@git+https://github.com/rpmuller/pyquante2@pure",
+  "importlib-resources",
 ]
 dynamic = ["version"]
 
@@ -46,6 +46,18 @@ dev = [
   "mdformat-gfm",
   "seaborn",
 ]
+
+[project.urls]
+Website = "https://github.com/valence-labs/mess"
+"Source Code" = "https://github.com/valence-labs/mess"
+"Bug Tracker" = "https://github.com/valence-labs/mess/issues"
+Documentation = "https://valence-labs.github.io/mess/"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools_scm]
+fallback_version = "dev"
 
 [tool.pytest.ini_options]
 addopts = "-s -v --durations=10"

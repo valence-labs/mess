@@ -1,15 +1,15 @@
-"""Interoperation tools for working across MESS, PySCF, and PyQuante."""
+"""Interoperation tools for working across MESS, PySCF."""
 
 from typing import Tuple
 
 import numpy as np
 from periodictable import elements
 from pyscf import gto
-from pyquante2.geo import samples
 
 from mess.basis import Basis, basisset
 from mess.structure import Structure
 from mess.units import to_bohr
+from mess.package_utils import requires_package
 
 
 def to_pyscf(structure: Structure, basis_name: str = "sto-3g") -> "gto.Mole":
@@ -37,6 +37,7 @@ def from_pyscf(mol: "gto.Mole") -> Tuple[Structure, Basis]:
     return structure, basis
 
 
+@requires_package("pyquante2")
 def from_pyquante(name: str) -> Structure:
     """Load molecular structure from pyquante2.geo.samples module
 
@@ -47,6 +48,8 @@ def from_pyquante(name: str) -> Structure:
     Returns:
         Structure
     """
+    from pyquante2.geo import samples
+
     pqmol = getattr(samples, name)
     atomic_number, position = zip(*[(a.Z, a.r) for a in pqmol])
     atomic_number, position = [np.asarray(x) for x in (atomic_number, position)]
