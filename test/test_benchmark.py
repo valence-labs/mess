@@ -9,22 +9,8 @@ from mess.integrals import (
     nuclear_basis,
     overlap_basis,
 )
-from mess.interop import from_pyquante
 from mess.structure import molecule
-from mess.zeropad_integrals import overlap_basis_zeropad
 from conftest import is_mem_limited
-
-
-@pytest.mark.parametrize("func", [overlap_basis, overlap_basis_zeropad, kinetic_basis])
-def test_benzene(func, benchmark):
-    mol = from_pyquante("c6h6")
-    basis = basisset(mol, "def2-TZVPPD")
-    basis = jax.device_put(basis)
-
-    def harness():
-        return func(basis).block_until_ready()
-
-    benchmark(harness)
 
 
 @pytest.mark.parametrize("mol_name", ["h2", "water"])

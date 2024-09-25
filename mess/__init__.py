@@ -6,9 +6,12 @@ variables:
   * ``MESS_CACHE_DIR``: JIT compilation cache location. Defaults to ``~/.cache/mess``
 """
 
-import importlib.metadata
+from importlib.metadata import PackageNotFoundError, version
 
-__version__ = importlib.metadata.version("mess")
+try:
+    __version__ = version("mess")
+except PackageNotFoundError: # Package is not installed
+    __version__ = "dev"
 
 from mess.basis import basisset
 from mess.hamiltonian import Hamiltonian, minimise
