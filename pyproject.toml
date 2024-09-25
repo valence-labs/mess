@@ -3,7 +3,7 @@ requires = ["setuptools>=64", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mess"
+name = "mess-jax"
 authors = [{ name = "Hatem Helal", email = "hatem@valencelabs.com" }]
 description = "MESS: Modern Electronic Structure Simulations"
 readme = "README.md"
