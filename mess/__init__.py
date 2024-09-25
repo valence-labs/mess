@@ -10,7 +10,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 try:
     __version__ = version("mess")
-except PackageNotFoundError: # Package is not installed
+except PackageNotFoundError:  # Package is not installed
     __version__ = "dev"
 
 from mess.basis import basisset
