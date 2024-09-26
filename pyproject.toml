@@ -26,7 +26,7 @@ dependencies = [
   "pandas",
   "periodictable",
   "pyarrow",
-  "pyscf",
+  "pyscf==2.6.2",
   "py3Dmol",
   "basis_set_exchange",
   "sympy",
