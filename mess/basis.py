@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 from jax import jit
 from jax.ops import segment_sum
-from tabulate import tabulate
 
 from mess.orbital import Orbital, batch_orbitals
 from mess.primitive import Primitive
@@ -74,9 +73,7 @@ class Basis(eqx.Module):
         return orb.T
 
     def __repr__(self) -> str:
-        df = self.to_dataframe()
-        headers = ["primitive"] + df.columns.to_list()
-        return tabulate(df, headers)
+        return repr(self.to_dataframe())
 
     def _repr_html_(self) -> str | None:
         df = self.to_dataframe()
