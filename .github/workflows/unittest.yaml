@@ -20,10 +20,6 @@ jobs:
           pip install -U pip
           pip install .[dev]
 
-      - name: Workaround for compilation cache failure
-        run: |
-          pip install etils[epath]
-
       - name: Log installed environment
         run: |
           python3 -m pip freeze
