@@ -1,5 +1,6 @@
 """basis sets of Gaussian type orbitals"""
 
+from functools import cache
 from typing import Tuple
 
 import equinox as eqx
@@ -12,7 +13,15 @@ from jax.ops import segment_sum
 from mess.orbital import Orbital, batch_orbitals
 from mess.primitive import Primitive
 from mess.structure import Structure
-from mess.types import FloatN, FloatNx3, FloatNxM, FloatNxN, IntN, default_fptype
+from mess.types import (
+    Float3,
+    FloatN,
+    FloatNx3,
+    FloatNxM,
+    FloatNxN,
+    IntN,
+    default_fptype,
+)
 
 
 class Basis(eqx.Module):
@@ -95,6 +104,42 @@ def basisset(structure: Structure, basis_name: str = "sto-3g") -> Basis:
     Returns:
         Basis constructed from inputs
     """
+    orbitals = []
+
+    for a in range(structure.num_atoms):
+        element = int(structure.atomic_number[a])
+        center = structure.position[a, :]
+        orbitals += _build_orbitals(basis_name, element, center)
+
+    primitives, coefficients, orbital_index = batch_orbitals(orbitals)
+
+    return Basis(
+        orbitals=orbitals,
+        structure=structure,
+        primitives=primitives,
+        coefficients=coefficients,
+        orbital_index=orbital_index,
+        basis_name=basis_name,
+        max_L=int(np.max(primitives.lmn)),
+    )
+
+
+@cache
+def _bse_to_orbitals(basis_name: str, atomic_number: int) -> Tuple[Orbital]:
+    """
+    Look up basis set parameters on the basis set exchange and build a tuple of Orbital.
+
+    The output is cached to reuse the same objects for a given basis set and atomic
+    number.  This can help save time when batching over different coordinates.
+
+    Args:
+        basis_name (str): The name of the basis set to lookup on the basis set exchange.
+        atomic_number (int): The atomic number for the element to retrieve.
+
+    Returns:
+        Tuple[Orbital]: Tuple of Orbital objects corresponding to the specified basis
+            set and atomic number.
+    """
     from basis_set_exchange import get_basis
     from basis_set_exchange.sort import sort_basis
 
@@ -110,38 +155,48 @@ def basisset(structure: Structure, basis_name: str = "sto-3g") -> Basis:
 
     bse_basis = get_basis(
         basis_name,
-        elements=structure.atomic_number.tolist(),
+        elements=atomic_number,
         uncontract_spdf=True,
         uncontract_general=True,
     )
     bse_basis = sort_basis(bse_basis)["elements"]
     orbitals = []
 
-    for a in range(structure.num_atoms):
-        center = structure.position[a, :]
-        shells = bse_basis[str(structure.atomic_number[a])]["electron_shells"]
+    for s in bse_basis[str(atomic_number)]["electron_shells"]:
+        for lmn in LMN_MAP[s["angular_momentum"][0]]:
+            ao = Orbital.from_bse(
+                center=np.zeros(3, dtype=default_fptype()),
+                alphas=np.array(s["exponents"], dtype=default_fptype()),
+                lmn=np.array(lmn, dtype=np.int32),
+                coefficients=np.array(s["coefficients"], dtype=default_fptype()),
+            )
+            orbitals.append(ao)
 
-        for s in shells:
-            for lmn in LMN_MAP[s["angular_momentum"][0]]:
-                ao = Orbital.from_bse(
-                    center=center,
-                    alphas=np.array(s["exponents"], dtype=default_fptype()),
-                    lmn=np.array(lmn, dtype=np.int32),
-                    coefficients=np.array(s["coefficients"], dtype=default_fptype()),
-                )
-                orbitals.append(ao)
+    return tuple(orbitals)
 
-    primitives, coefficients, orbital_index = batch_orbitals(orbitals)
 
-    return Basis(
-        orbitals=orbitals,
-        structure=structure,
-        primitives=primitives,
-        coefficients=coefficients,
-        orbital_index=orbital_index,
-        basis_name=basis_name,
-        max_L=int(np.max(primitives.lmn)),
-    )
+def _build_orbitals(
+    basis_name: str, atomic_number: int, center: Float3
+) -> Tuple[Orbital]:
+    """
+    Constructs a tuple of Orbital objects for a given atomic_number and basis set,
+    with each orbital centered at the specified coordinates.
+
+    Args:
+        basis_name (str): The name of the basis set to use.
+        atomic_number (int): The atomic number used to build the orbitals.
+        center (Float3): the 3D coordinate specifying the center of the orbitals
+
+    Returns:
+        Tuple[Orbital]: A tuple of Orbitals centered at the provided coordinates.
+    """
+    orbitals = _bse_to_orbitals(basis_name, atomic_number)
+
+    def where(orbitals):
+        return [p.center for ao in orbitals for p in ao.primitives]
+
+    num_centers = len(where(orbitals))
+    return eqx.tree_at(where, orbitals, replace=np.tile(center, (num_centers, 1)))
 
 
 def basis_iter(basis: Basis):
