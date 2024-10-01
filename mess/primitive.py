@@ -16,6 +16,7 @@ class Primitive(eqx.Module):
     alpha: float = eqx.field(converter=asfparray, default=1.0)
     lmn: Int3 = eqx.field(converter=asintarray, default=(0, 0, 0))
     norm: Optional[float] = None
+    atom_index: Optional[int] = None
 
     def __post_init__(self):
         if self.norm is None:
