@@ -68,6 +68,7 @@ def test_minimise_ks(benchmark, mol_name):
 def test_construct_basis(benchmark):
     def harness():
         mol = molecule("water")
-        basisset(mol, "6-31g")
+        basis = basisset(mol, "6-31g")
+        return jax.block_until_ready(basis)
 
     benchmark(harness)
