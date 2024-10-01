@@ -11,17 +11,12 @@ from mess.integrals import (
     overlap_basis,
 )
 from mess.structure import molecule
-from mess.interop import from_pyquante
-from mess.package_utils import has_package
 from conftest import is_mem_limited
 
 
 @pytest.mark.parametrize("func", [overlap_basis, overlap_basis_zeropad, kinetic_basis])
-@pytest.mark.skipif(
-    not has_package("pyquante2"), reason="Missing Optional Dependency: pyquante2"
-)
 def test_benzene(func, benchmark):
-    mol = from_pyquante("c6h6")
+    mol = molecule("benzene")
     basis = basisset(mol, "def2-TZVPPD")
     basis = jax.device_put(basis)
 
