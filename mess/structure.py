@@ -78,6 +78,47 @@ def molecule(name: str) -> Structure:
             ),
         )
 
+    if name == "benzene":
+        r"""Benzene ring C6H6
+        Strucutre of benzene ring calculated with DFT using B3LYP
+        functional and 6-31+G** basis set <https://cccbdb.nist.gov/>"""
+        return Structure(
+            atomic_number=np.array([6, 6, 6, 6, 6, 6, 1, 1, 1, 1, 1, 1]),
+            position=to_bohr(
+                np.array([
+                    [0.0000000, 1.3963310, 0.0000000],
+                    [1.2092580, 0.6981650, 0.0000000],
+                    [1.2092580, -0.6981650, 0.0000000],
+                    [0.0000000, -1.3963310, 0.0000000],
+                    [-1.2092580, -0.6981650, 0.0000000],
+                    [-1.2092580, 0.6981650, 0.0000000],
+                    [0.0000000, 2.4826620, 0.0000000],
+                    [2.1500490, 1.2413310, 0.0000000],
+                    [2.1500490, -1.2413310, 0.0000000],
+                    [0.0000000, -2.4826620, 0.0000000],
+                    [-2.1500490, -1.2413310, 0.0000000],
+                    [-2.1500490, 1.2413310, 0.0000000],
+                ])
+            ),
+        )
+
+    if name == "methane":
+        r"""Methane molecule CH4
+        Structure of methane molecule calculated with DFT using B3LYP
+        functional and 6-31+G** basis set <https://cccbdb.nist.gov/>"""
+        return Structure(
+            atomic_number=np.array([6, 1, 1, 1, 1]),
+            position=to_bohr(
+                np.array([
+                    [0.0000000, 0.0000000, 0.0000000],
+                    [0.6308780, 0.6308780, 0.6308780],
+                    [-0.6308780, -0.6308780, 0.6308780],
+                    [-0.6308780, 0.6308780, -0.6308780],
+                    [0.6308780, -0.6308780, -0.6308780],
+                ])
+            ),
+        )
+
     raise NotImplementedError(f"No structure registered for: {name}")
 
 
