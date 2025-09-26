@@ -18,9 +18,7 @@ classifiers = [
 ]
 dependencies = [
   "equinox",
-  # JAX 0.7.0 is known to be buggy with Equinox.
-  # https://github.com/patrick-kidger/equinox/issues/1084
-  "jax==0.6.2",
+  "jax",
   "jaxtyping",
   "more-itertools",
   "optax",
