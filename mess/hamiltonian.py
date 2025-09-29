@@ -13,7 +13,7 @@ from jaxtyping import Array, ScalarLike
 from mess.basis import Basis, renorm
 from mess.integrals import eri_basis, kinetic_basis, nuclear_basis, overlap_basis
 from mess.interop import to_pyscf
-from mess.mesh import Mesh, density, density_and_grad, xcmesh_from_pyscf
+from mess.mesh import Mesh, density, density_and_grad, sg1_mesh
 from mess.orthnorm import symmetric
 from mess.structure import nuclear_energy
 from mess.types import FloatNxN, OrthNormTransform
@@ -119,7 +119,7 @@ class LDA(eqx.Module):
 
     def __init__(self, basis: Basis):
         self.basis = basis
-        self.mesh = xcmesh_from_pyscf(basis.structure)
+        self.mesh = sg1_mesh(basis.structure)
 
     def __call__(self, P: FloatNxN) -> ScalarLike:
         rho = density(self.basis, self.mesh, P)
@@ -134,7 +134,7 @@ class PBE(eqx.Module):
 
     def __init__(self, basis: Basis):
         self.basis = basis
-        self.mesh = xcmesh_from_pyscf(basis.structure)
+        self.mesh = sg1_mesh(basis.structure)
 
     def __call__(self, P: FloatNxN) -> ScalarLike:
         rho, grad_rho = density_and_grad(self.basis, self.mesh, P)
@@ -150,7 +150,7 @@ class PBE0(eqx.Module):
 
     def __init__(self, basis: Basis, two_electron: TwoElectron):
         self.basis = basis
-        self.mesh = xcmesh_from_pyscf(basis.structure)
+        self.mesh = sg1_mesh(basis.structure)
         self.hfx = HartreeFockExchange(two_electron)
 
     def __call__(self, P: FloatNxN) -> ScalarLike:
@@ -167,7 +167,7 @@ class B3LYP(eqx.Module):
 
     def __init__(self, basis: Basis, two_electron: TwoElectron):
         self.basis = basis
-        self.mesh = xcmesh_from_pyscf(basis.structure)
+        self.mesh = sg1_mesh(basis.structure)
         self.hfx = HartreeFockExchange(two_electron)
 
     def __call__(self, P: FloatNxN) -> ScalarLike:
