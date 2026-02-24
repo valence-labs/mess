@@ -24,6 +24,11 @@ default_threshold = 1e-15
 
 
 def lda_exchange(rho: FloatN, threshold: float = default_threshold) -> FloatN:
+    """LDA exchange energy per particle for a given density.
+
+    For spin-polarized calculations, call this separately for each spin
+    density scaled by 2, then combine: E_x = 0.5 * (E_x[2*rho_a] + E_x[2*rho_b])
+    """
     mask = rho > threshold
     rho = jnp.where(mask, rho, 0.0)
     Cx = (3 / 4) * (3 / np.pi) ** (1 / 3)
@@ -32,9 +37,55 @@ def lda_exchange(rho: FloatN, threshold: float = default_threshold) -> FloatN:
     return eps_x
 
 
-def lda_correlation_vwn(
-    rho: FloatN, threshold: float = default_threshold, use_rpa: bool = True
+def lda_exchange_spinpol(
+    rho_a: FloatN, rho_b: FloatN, threshold: float = default_threshold
 ) -> FloatN:
+    """Spin-polarized LDA exchange energy per particle.
+
+    Uses spin-scaling relation: E_x[rho_a, rho_b] = 0.5 * (E_x[2*rho_a] + E_x[2*rho_b])
+
+    Args:
+        rho_a: Alpha spin density.
+        rho_b: Beta spin density.
+        threshold: Density threshold for numerical stability.
+
+    Returns:
+        Exchange energy per particle (to be integrated with total density).
+    """
+    rho_total = rho_a + rho_b
+    mask = rho_total > threshold
+
+    # Exchange energy densities for each spin (scaled by 2)
+    eps_x_a = lda_exchange(2.0 * rho_a, threshold)
+    eps_x_b = lda_exchange(2.0 * rho_b, threshold)
+
+    # Combine: weighted average by spin densities
+    eps_x = jnp.where(
+        mask,
+        (rho_a * eps_x_a + rho_b * eps_x_b) / jnp.where(mask, rho_total, 1.0),
+        0.0,
+    )
+    return eps_x
+
+
+def lda_correlation_vwn(
+    rho: FloatN,
+    zeta: FloatN | None = None,
+    threshold: float = default_threshold,
+    use_rpa: bool = True,
+) -> FloatN:
+    """VWN correlation energy per particle.
+
+    Args:
+        rho: Total electron density.
+        zeta: Spin polarization (rho_alpha - rho_beta) / rho.
+              If None, assumes restricted (zeta=0).
+        threshold: Density threshold for numerical stability.
+        use_rpa: Use RPA parameters (default True).
+
+    Returns:
+        Correlation energy per particle.
+    """
     A, x0, b, c = vwn_coefs(use_rpa)
 
     # avoid divide by zero when rho = 0 by replacing with 1.0
@@ -51,7 +102,7 @@ def lda_correlation_vwn(
     ec = A * (u - b * x0 / X0 * v)
     e0, e1, alpha = ec.T
     beta = F2 * (e1 - e0) / alpha - 1
-    z = jnp.zeros_like(rho)  # restricted ks, should be rho_up - rho_down
+    z = jnp.zeros_like(rho) if zeta is None else zeta
     eps_c = e0 + alpha * fzeta(z) / F2 * (1 + beta * z**4)
     eps_c = jnp.where(mask, eps_c, 0.0)
     return eps_c
@@ -73,7 +124,22 @@ def vwn_coefs(use_rpa: bool = True):
     return A, x0, b, c
 
 
-def lda_correlation_pw(rho: FloatN, threshold: float = default_threshold) -> FloatN:
+def lda_correlation_pw(
+    rho: FloatN,
+    zeta: FloatN | None = None,
+    threshold: float = default_threshold,
+) -> FloatN:
+    """Perdew-Wang correlation energy per particle.
+
+    Args:
+        rho: Total electron density.
+        zeta: Spin polarization (rho_alpha - rho_beta) / rho.
+              If None, assumes restricted (zeta=0).
+        threshold: Density threshold for numerical stability.
+
+    Returns:
+        Correlation energy per particle.
+    """
     p = np.ones(3)
     A = np.array([0.031091, 0.015545, 0.016887])
     a1 = np.array([0.21370, 0.20548, 0.11125])
@@ -90,7 +156,7 @@ def lda_correlation_pw(rho: FloatN, threshold: float = default_threshold) -> Flo
     G = -2 * A * (1 + a1 * rs) * jnp.log(1 + 1 / v)
     e0, e1, alpha = G.T
     beta = F2 * (e1 - e0) / alpha - 1
-    z = jnp.zeros_like(rho)  # restricted ks, should be rho_up - rho_down
+    z = jnp.zeros_like(rho) if zeta is None else zeta
     eps_c = e0 + alpha * fzeta(z) / F2 * (1 + beta * z**4)
     eps_c = jnp.where(mask, eps_c, 0.0)
     return eps_c
@@ -99,42 +165,118 @@ def lda_correlation_pw(rho: FloatN, threshold: float = default_threshold) -> Flo
 def gga_exchange_b88(
     rho: FloatN, grad_rho: FloatNx3, threshold: float = default_threshold
 ) -> FloatN:
+    """B88 exchange energy per particle."""
     beta = jnp.asarray(0.0042 * 2 ** (1 / 3))
     # avoid divide by zero when rho = 0 by replacing with 1.0
     mask = jnp.abs(rho) > threshold
-    rho = jnp.where(mask, rho, 1.0)
-    x = jnl.norm(grad_rho, axis=1) / rho ** (4 / 3)
+    rho_safe = jnp.where(mask, rho, 1.0)
+    x = jnl.norm(grad_rho, axis=1) / rho_safe ** (4 / 3)
     d = 1 + 6 * beta * x * jnp.arcsinh(2 ** (1 / 3) * x)
-    eps_x = lda_exchange(rho) - beta * rho ** (1 / 3) * x**2 / d
+    eps_x = lda_exchange(rho, threshold) - beta * rho_safe ** (1 / 3) * x**2 / d
     eps_x = jnp.where(mask, eps_x, 0.0)
+    return eps_x
+
+
+def gga_exchange_b88_spinpol(
+    rho_a: FloatN,
+    rho_b: FloatN,
+    grad_rho_a: FloatNx3,
+    grad_rho_b: FloatNx3,
+    threshold: float = default_threshold,
+) -> FloatN:
+    """Spin-polarized B88 exchange energy per particle."""
+    rho_total = rho_a + rho_b
+    mask = rho_total > threshold
+
+    eps_x_a = gga_exchange_b88(2.0 * rho_a, 2.0 * grad_rho_a, threshold)
+    eps_x_b = gga_exchange_b88(2.0 * rho_b, 2.0 * grad_rho_b, threshold)
+
+    eps_x = jnp.where(
+        mask,
+        (rho_a * eps_x_a + rho_b * eps_x_b) / jnp.where(mask, rho_total, 1.0),
+        0.0,
+    )
     return eps_x
 
 
 def gga_exchange_pbe(
     rho: FloatN, grad_rho: FloatNx3, threshold: float = default_threshold
 ) -> FloatN:
+    """PBE exchange energy per particle."""
     beta = np.asarray(0.066725)  # Eq 4
     mu = beta * np.pi**2 / 3  # Eq 12
     kappa = np.asarray(0.8040)  # Eq 14
 
     # avoid divide by zero when rho = 0 by replacing with 1.0
     mask = jnp.abs(rho) > threshold
-    rho = jnp.where(mask, rho, 1.0)
-    kf = (3 * np.pi**2 * rho) ** (1 / 3)
-    s = jnl.norm(grad_rho, axis=1) / (2 * kf * rho)
+    rho_safe = jnp.where(mask, rho, 1.0)
+    kf = (3 * np.pi**2 * rho_safe) ** (1 / 3)
+    s = jnl.norm(grad_rho, axis=1) / (2 * kf * rho_safe)
     F = 1 + kappa - kappa / (1 + mu * s**2 / kappa)
     F = jnp.where(mask, F, 0.0)
-    return lda_exchange(rho) * F
+    return lda_exchange(rho, threshold) * F
+
+
+def gga_exchange_pbe_spinpol(
+    rho_a: FloatN,
+    rho_b: FloatN,
+    grad_rho_a: FloatNx3,
+    grad_rho_b: FloatNx3,
+    threshold: float = default_threshold,
+) -> FloatN:
+    """Spin-polarized PBE exchange energy per particle.
+
+    Uses spin-scaling: evaluate PBE exchange for each spin density scaled by 2.
+
+    Args:
+        rho_a: Alpha spin density.
+        rho_b: Beta spin density.
+        grad_rho_a: Gradient of alpha density.
+        grad_rho_b: Gradient of beta density.
+        threshold: Density threshold.
+
+    Returns:
+        Exchange energy per particle (to be integrated with total density).
+    """
+    rho_total = rho_a + rho_b
+    mask = rho_total > threshold
+
+    # Exchange for each spin with scaled density and gradient
+    eps_x_a = gga_exchange_pbe(2.0 * rho_a, 2.0 * grad_rho_a, threshold)
+    eps_x_b = gga_exchange_pbe(2.0 * rho_b, 2.0 * grad_rho_b, threshold)
+
+    # Combine weighted by spin densities
+    eps_x = jnp.where(
+        mask,
+        (rho_a * eps_x_a + rho_b * eps_x_b) / jnp.where(mask, rho_total, 1.0),
+        0.0,
+    )
+    return eps_x
 
 
 def gga_correlation_pbe(
-    rho: FloatN, grad_rho: FloatNx3, threshold: float = default_threshold
+    rho: FloatN,
+    grad_rho: FloatNx3,
+    zeta: FloatN | None = None,
+    threshold: float = default_threshold,
 ) -> FloatN:
+    """PBE correlation energy per particle.
+
+    Args:
+        rho: Total electron density.
+        grad_rho: Gradient of total density.
+        zeta: Spin polarization (rho_alpha - rho_beta) / rho.
+              If None, assumes restricted (zeta=0).
+        threshold: Density threshold for numerical stability.
+
+    Returns:
+        Correlation energy per particle.
+    """
     beta = np.asarray(0.066725)
     gamma = (1 - np.log(2.0)) / np.pi**2
-    z = jnp.zeros_like(rho)  # restricted ks, should be (rho_up - rho_down) / rho
+    z = jnp.zeros_like(rho) if zeta is None else zeta
     phi = 0.5 * (jnp.power(1 + z, 2 / 3) + jnp.power(1 - z, 2 / 3))
-    ec_pw = lda_correlation_pw(rho, threshold)
+    ec_pw = lda_correlation_pw(rho, zeta, threshold)
     # avoid divide by zero when rho = 0 by replacing with 1.0
     mask = jnp.abs(rho) > threshold
     rho = jnp.where(mask, rho, 1.0)

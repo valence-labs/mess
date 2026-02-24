@@ -18,14 +18,55 @@ class Structure(eqx.Module):
     atomic_symbol: List[str] = eqx.field(static=True)
     num_electrons: int = eqx.field(static=True)
     num_atoms: int = eqx.field(static=True)
+    charge: int = eqx.field(static=True)
+    spin_multiplicity: int = eqx.field(static=True)
+    n_alpha: int = eqx.field(static=True)
+    n_beta: int = eqx.field(static=True)
 
-    def __init__(self, atomic_number: IntN, position: FloatNx3):
+    def __init__(
+        self,
+        atomic_number: IntN,
+        position: FloatNx3,
+        charge: int = 0,
+        spin_multiplicity: int | None = None,
+    ):
+        """Create a molecular structure.
+
+        Args:
+            atomic_number: Array of atomic numbers for each atom.
+            position: Array of atomic positions in Bohr.
+            charge: Net charge of the system (default 0).
+            spin_multiplicity: Spin multiplicity 2S+1 (default: singlet for even
+                electrons, doublet for odd electrons).
+        """
         # single atom case
         self.atomic_number = np.atleast_1d(atomic_number)
         self.position = np.atleast_2d(position)
         self.atomic_symbol = [elements[z].symbol for z in self.atomic_number]
-        self.num_electrons = int(np.sum(self.atomic_number))
+        self.charge = charge
+        self.num_electrons = int(np.sum(self.atomic_number)) - charge
         self.num_atoms = len(self.atomic_number)
+
+        # Determine spin multiplicity if not provided
+        if spin_multiplicity is None:
+            # Default: singlet for even electrons, doublet for odd
+            spin_multiplicity = (self.num_electrons % 2) + 1
+        self.spin_multiplicity = spin_multiplicity
+
+        # Validate spin multiplicity
+        n_unpaired = spin_multiplicity - 1
+        if (self.num_electrons - n_unpaired) % 2 != 0:
+            raise ValueError(
+                f"Invalid spin_multiplicity={spin_multiplicity} for "
+                f"num_electrons={self.num_electrons}. "
+                f"(num_electrons - (spin_multiplicity - 1)) must be even."
+            )
+
+        # Calculate alpha and beta electron counts
+        # n_alpha + n_beta = num_electrons
+        # n_alpha - n_beta = spin_multiplicity - 1 (number of unpaired electrons)
+        self.n_alpha = (self.num_electrons + n_unpaired) // 2
+        self.n_beta = (self.num_electrons - n_unpaired) // 2
 
     def _repr_html_(self):
         import py3Dmol
