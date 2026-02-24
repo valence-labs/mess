@@ -331,9 +331,9 @@ class ULDA(eqx.Module):
         rho_b = density(self.basis, self.mesh, P_beta)
         rho_total = rho_a + rho_b
 
-        # Spin polarization
-        zeta = (rho_a - rho_b) / jnp.where(rho_total > 1e-15, rho_total, 1.0)
-        zeta = jnp.where(rho_total > 1e-15, zeta, 0.0)
+        # Spin polarization with safe division (avoids NaN gradients)
+        zeta = (rho_a - rho_b) / (rho_total + 1e-15)
+        zeta = jnp.clip(zeta, -1.0, 1.0)
 
         # Exchange (spin-polarized)
         eps_x = lda_exchange_spinpol(rho_a, rho_b)
@@ -361,9 +361,9 @@ class UPBE(eqx.Module):
         rho_total = rho_a + rho_b
         grad_rho_total = grad_rho_a + grad_rho_b
 
-        # Spin polarization
-        zeta = (rho_a - rho_b) / jnp.where(rho_total > 1e-15, rho_total, 1.0)
-        zeta = jnp.where(rho_total > 1e-15, zeta, 0.0)
+        # Spin polarization with safe division (avoids NaN gradients)
+        zeta = (rho_a - rho_b) / (rho_total + 1e-15)
+        zeta = jnp.clip(zeta, -1.0, 1.0)
 
         # Exchange (spin-polarized)
         eps_x = gga_exchange_pbe_spinpol(rho_a, rho_b, grad_rho_a, grad_rho_b)
@@ -393,8 +393,9 @@ class UPBE0(eqx.Module):
         rho_total = rho_a + rho_b
         grad_rho_total = grad_rho_a + grad_rho_b
 
-        zeta = (rho_a - rho_b) / jnp.where(rho_total > 1e-15, rho_total, 1.0)
-        zeta = jnp.where(rho_total > 1e-15, zeta, 0.0)
+        # Spin polarization with safe division (avoids NaN gradients)
+        zeta = (rho_a - rho_b) / (rho_total + 1e-15)
+        zeta = jnp.clip(zeta, -1.0, 1.0)
 
         eps_x = 0.75 * gga_exchange_pbe_spinpol(rho_a, rho_b, grad_rho_a, grad_rho_b)
         eps_c = gga_correlation_pbe(rho_total, grad_rho_total, zeta=zeta)
@@ -420,8 +421,9 @@ class UB3LYP(eqx.Module):
         rho_b, grad_rho_b = density_and_grad(self.basis, self.mesh, P_beta)
         rho_total = rho_a + rho_b
 
-        zeta = (rho_a - rho_b) / jnp.where(rho_total > 1e-15, rho_total, 1.0)
-        zeta = jnp.where(rho_total > 1e-15, zeta, 0.0)
+        # Spin polarization with safe division (avoids NaN gradients)
+        zeta = (rho_a - rho_b) / (rho_total + 1e-15)
+        zeta = jnp.clip(zeta, -1.0, 1.0)
 
         # B3LYP exchange: 0.08*LDA + 0.72*B88
         eps_x_lda = lda_exchange_spinpol(rho_a, rho_b)

@@ -28,9 +28,12 @@ closed_shell_cases = {
 }
 
 # Open-shell molecules
-# Note: H_atom is excluded because STO-3G has only 1 orbital,
-# making QR orthonormalization trivial (no optimization possible)
 open_shell_cases = {
+    "H_atom": Structure(
+        atomic_number=np.array([1]),
+        position=np.array([[0.0, 0.0, 0.0]]),
+        spin_multiplicity=2,
+    ),
     "Li_atom": Structure(
         atomic_number=np.array([3]),
         position=np.array([[0.0, 0.0, 0.0]]),

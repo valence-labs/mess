@@ -29,10 +29,12 @@ def lda_exchange(rho: FloatN, threshold: float = default_threshold) -> FloatN:
     For spin-polarized calculations, call this separately for each spin
     density scaled by 2, then combine: E_x = 0.5 * (E_x[2*rho_a] + E_x[2*rho_b])
     """
+    # Use jnp.maximum for gradient-safe thresholding
+    # (jnp.where doesn't prevent gradient flow through unused branches)
     mask = rho > threshold
-    rho = jnp.where(mask, rho, 0.0)
+    rho_safe = jnp.maximum(rho, threshold)
     Cx = (3 / 4) * (3 / np.pi) ** (1 / 3)
-    eps_x = -Cx * rho ** (1 / 3)
+    eps_x = -Cx * rho_safe ** (1 / 3)
     eps_x = jnp.where(mask, eps_x, 0.0)
     return eps_x
 
@@ -207,11 +209,14 @@ def gga_exchange_pbe(
     mu = beta * np.pi**2 / 3  # Eq 12
     kappa = np.asarray(0.8040)  # Eq 14
 
-    # avoid divide by zero when rho = 0 by replacing with 1.0
+    # Use jnp.maximum for gradient-safe thresholding
+    # (jnp.where doesn't prevent gradient flow through unused branches)
     mask = jnp.abs(rho) > threshold
-    rho_safe = jnp.where(mask, rho, 1.0)
+    rho_safe = jnp.maximum(rho, threshold)
     kf = (3 * np.pi**2 * rho_safe) ** (1 / 3)
-    s = jnl.norm(grad_rho, axis=1) / (2 * kf * rho_safe)
+    # Safe norm: sqrt(|x|^2 + eps) avoids NaN gradient at x=0
+    grad_norm = jnp.sqrt(jnp.sum(grad_rho**2, axis=1) + threshold**2)
+    s = grad_norm / (2 * kf * rho_safe + threshold)
     F = 1 + kappa - kappa / (1 + mu * s**2 / kappa)
     F = jnp.where(mask, F, 0.0)
     return lda_exchange(rho, threshold) * F
