@@ -12,6 +12,7 @@ from mess.structure import Structure, molecule, nuclear_energy
 from mess.two_electron import (
     TwoElectronRI,
     TwoElectronTHC,
+    TwoElectronTHCRI,
     isdf_thc,
     isdf_thc_ri,
     ri_from_basis,
@@ -287,7 +288,7 @@ def test_thc_ri_coulomb_water(water_sto3g):
 
 
 def test_thc_ri_coulomb_formaldehyde(formaldehyde_def2svp):
-    """THC-from-RI Coulomb matrix for formaldehyde/def2-SVP vs PySCF, atol=1e-3."""
+    """THC-from-RI Coulomb matrix for formaldehyde/def2-SVP vs PySCF."""
     with enable_x64(True):
         H, P, mol, scf = formaldehyde_def2svp
         J_pyscf = np.asarray(scf.get_j(dm=P))
@@ -373,3 +374,75 @@ def test_hamiltonian_coulomb_ri_hfx():
         E_ri = float(H_ri(P)) + float(nuclear_energy(mol))
 
         assert abs(E_ri - E_pyscf) < 1e-3
+
+
+# ---------------------------------------------------------------------------
+# THC MO-form exchange
+# ---------------------------------------------------------------------------
+
+def test_thc_mo_exchange_water(water_sto3g):
+    """THC MO-form exchange matches AO-form and PySCF for water/sto-3g."""
+    with enable_x64(True):
+        H, P, mol, scf = water_sto3g
+        K_pyscf = np.asarray(scf.get_k(dm=P))
+
+        # Get occupied MO coefficients from PySCF
+        C_occ = np.asarray(scf.mo_coeff[:, scf.mo_occ > 0])
+
+        mesh = xcmesh_from_pyscf(H.basis.structure)
+        thc = isdf_thc(H.basis, mesh, H.two_electron.eri)
+
+        K_ao = np.asarray(thc.exchange(P))
+        K_mo = np.asarray(thc.exchange(P, C_occ=C_occ))
+
+        assert_allclose(K_mo, K_ao, atol=1e-10)
+        assert_allclose(K_mo, K_pyscf, atol=1e-6)
+
+
+def test_thc_ri_mo_exchange_water(water_sto3g):
+    """THC-from-RI MO-form exchange matches AO-form and PySCF for water/sto-3g."""
+    with enable_x64(True):
+        H, P, mol, scf = water_sto3g
+        K_pyscf = np.asarray(scf.get_k(dm=P))
+
+        C_occ = np.asarray(scf.mo_coeff[:, scf.mo_occ > 0])
+
+        mesh = xcmesh_from_pyscf(H.basis.structure)
+        thc = isdf_thc_ri(H.basis, mesh)
+
+        K_ao = np.asarray(thc.exchange(P))
+        K_mo = np.asarray(thc.exchange(P, C_occ=C_occ))
+
+        assert_allclose(K_mo, K_ao, atol=1e-10)
+        assert_allclose(K_mo, K_pyscf, atol=1e-3)
+
+
+# ---------------------------------------------------------------------------
+# TwoElectronTHCRI type and hybrid Coulomb
+# ---------------------------------------------------------------------------
+
+def test_thc_ri_returns_hybrid_type(water_sto3g):
+    """isdf_thc_ri returns TwoElectronTHCRI with B, X, Z attributes."""
+    with enable_x64(True):
+        H, P, mol, _ = water_sto3g
+        mesh = xcmesh_from_pyscf(H.basis.structure)
+        hybrid = isdf_thc_ri(H.basis, mesh)
+
+        assert isinstance(hybrid, TwoElectronTHCRI)
+        assert hasattr(hybrid, "B")
+        assert hasattr(hybrid, "X")
+        assert hasattr(hybrid, "Z")
+
+
+def test_thc_ri_hybrid_coulomb_matches_pure_ri(water_sto3g):
+    """Hybrid RI-J Coulomb matches pure RI Coulomb exactly."""
+    with enable_x64(True):
+        H, P, mol, _ = water_sto3g
+        mesh = xcmesh_from_pyscf(H.basis.structure)
+        hybrid = isdf_thc_ri(H.basis, mesh)
+        ri = ri_from_basis(H.basis)
+
+        J_hybrid = np.asarray(hybrid.coloumb(P))
+        J_ri = np.asarray(ri.coloumb(P))
+
+        assert_allclose(J_hybrid, J_ri, atol=1e-10)

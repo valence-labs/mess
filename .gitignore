@@ -4,6 +4,9 @@ uv.lock
 # IDE
 .vscode
 
+# Scratch / temporary scripts
+tmp/
+
 # jupyter-book derived files
 docs/_autosummary
 docs/_build

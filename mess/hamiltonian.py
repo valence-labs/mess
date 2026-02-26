@@ -69,8 +69,8 @@ class HartreeFockExchange(eqx.Module):
     def __init__(self, two_electron: eqx.Module):
         self.two_electron = two_electron
 
-    def __call__(self, P: FloatNxN) -> ScalarLike:
-        K = self.two_electron.exchange(P)
+    def __call__(self, P: FloatNxN, C_occ=None) -> ScalarLike:
+        K = self.two_electron.exchange(P, C_occ)
         return -0.25 * jnp.sum(P * K)
 
 
@@ -82,7 +82,7 @@ class LDA(eqx.Module):
         self.basis = basis
         self.mesh = xcmesh_from_pyscf(basis.structure)
 
-    def __call__(self, P: FloatNxN) -> ScalarLike:
+    def __call__(self, P: FloatNxN, C_occ=None) -> ScalarLike:
         rho = density(self.basis, self.mesh, P)
         eps_xc = lda_exchange(rho) + lda_correlation_vwn(rho)
         E_xc = jnp.einsum("i,i,i", self.mesh.weights, rho, eps_xc)
@@ -97,7 +97,7 @@ class PBE(eqx.Module):
         self.basis = basis
         self.mesh = xcmesh_from_pyscf(basis.structure)
 
-    def __call__(self, P: FloatNxN) -> ScalarLike:
+    def __call__(self, P: FloatNxN, C_occ=None) -> ScalarLike:
         rho, grad_rho = density_and_grad(self.basis, self.mesh, P)
         eps_xc = gga_exchange_pbe(rho, grad_rho) + gga_correlation_pbe(rho, grad_rho)
         E_xc = jnp.einsum("i,i,i", self.mesh.weights, rho, eps_xc)
@@ -114,11 +114,11 @@ class PBE0(eqx.Module):
         self.mesh = xcmesh_from_pyscf(basis.structure)
         self.hfx = HartreeFockExchange(two_electron)
 
-    def __call__(self, P: FloatNxN) -> ScalarLike:
+    def __call__(self, P: FloatNxN, C_occ=None) -> ScalarLike:
         rho, grad_rho = density_and_grad(self.basis, self.mesh, P)
         e = 0.75 * gga_exchange_pbe(rho, grad_rho) + gga_correlation_pbe(rho, grad_rho)
         E_xc = jnp.einsum("i,i,i", self.mesh.weights, rho, e)
-        return E_xc + 0.25 * self.hfx(P)
+        return E_xc + 0.25 * self.hfx(P, C_occ)
 
 
 class B3LYP(eqx.Module):
@@ -131,14 +131,14 @@ class B3LYP(eqx.Module):
         self.mesh = xcmesh_from_pyscf(basis.structure)
         self.hfx = HartreeFockExchange(two_electron)
 
-    def __call__(self, P: FloatNxN) -> ScalarLike:
+    def __call__(self, P: FloatNxN, C_occ=None) -> ScalarLike:
         rho, grad_rho = density_and_grad(self.basis, self.mesh, P)
         eps_x = 0.08 * lda_exchange(rho) + 0.72 * gga_exchange_b88(rho, grad_rho)
         vwn_c = (1 - 0.81) * lda_correlation_vwn(rho)
         lyp_c = 0.81 * gga_correlation_lyp(rho, grad_rho)
         b3lyp_xc = eps_x + vwn_c + lyp_c
         E_xc = jnp.einsum("i,i,i", self.mesh.weights, rho, b3lyp_xc)
-        return E_xc + 0.2 * self.hfx(P)
+        return E_xc + 0.2 * self.hfx(P, C_occ)
 
 
 def build_xcfunc(
@@ -199,8 +199,8 @@ class Hamiltonian(eqx.Module):
                 case "ri":
                     self.two_electron = ri_from_basis(basis)
                 case "thc-ri":
-                    mesh = xcmesh_from_pyscf(basis.structure)
-                    self.two_electron = isdf_thc_ri(basis, mesh)
+                    mesh = xcmesh_from_pyscf(basis.structure, level=0)
+                    self.two_electron = isdf_thc_ri(basis, mesh, c_isdf=3.0)
                 case _:
                     methods = get_args(CoulombMethod)
                     raise ValueError(
@@ -209,9 +209,9 @@ class Hamiltonian(eqx.Module):
                     )
         self.xcfunc = build_xcfunc(xc_method, self.basis, self.two_electron)
 
-    def __call__(self, P: FloatNxN) -> ScalarLike:
+    def __call__(self, P: FloatNxN, C_occ=None) -> ScalarLike:
         E_core = jnp.sum(self.H_core * P)
-        E_xc = self.xcfunc(P)
+        E_xc = self.xcfunc(P, C_occ)
         J = self.two_electron.coloumb(P)
         E_es = 0.5 * jnp.sum(J * P)
         E = E_core + E_xc + E_es
@@ -258,13 +258,17 @@ def minimise(
     def f(Z, _):
         C = H.orthonormalise(Z)
         P = H.basis.density_matrix(C)
-        return H(P)
+        n_occ = H.basis.structure.num_electrons // 2
+        C_occ = C[:, :n_occ]
+        return H(P, C_occ=C_occ)
 
     solver = optx.BestSoFarMinimiser(solver)
     Z = initial_guess_fn(H.basis)
     sol = optx.minimise(f, solver, Z, max_steps=max_steps)
     C = H.orthonormalise(sol.value)
     P = H.basis.density_matrix(C)
-    E_elec = H(P)
+    n_occ = H.basis.structure.num_electrons // 2
+    C_occ = C[:, :n_occ]
+    E_elec = H(P, C_occ=C_occ)
     E_total = E_elec + nuclear_energy(H.basis.structure)
     return E_total, C, sol
