@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from jax.experimental import enable_x64
+from jax import enable_x64
 from numpy.testing import assert_allclose
 from pyscf import dft
 

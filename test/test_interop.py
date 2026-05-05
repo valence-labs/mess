@@ -30,7 +30,7 @@ def test_to_pyscf(basis_name, spherical):
 @pytest.mark.parametrize("mol", mol_cases.values(), ids=mol_cases.keys())
 def test_gto(basis_name, spherical, mol):
     from pyscf.dft.numint import eval_rho, eval_ao
-    from jax.experimental import enable_x64
+    from jax import enable_x64
 
     with enable_x64(True):
         # Run these comparisons to PySCF in fp64
