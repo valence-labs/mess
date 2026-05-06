@@ -5,12 +5,12 @@ from typing import Callable
 
 import jax.numpy as jnp
 import numpy as np
-from jax.experimental import enable_x64
+from jax import enable_x64
 from jaxtyping import Array
 
 
 def apply_fpcast(v: Array, dtype: np.dtype):
-    if isinstance(v, jnp.ndarray) and np.issubdtype(v, np.floating):
+    if isinstance(v, jnp.ndarray) and np.issubdtype(v.dtype, np.floating):
         return v.astype(dtype)
 
     return v

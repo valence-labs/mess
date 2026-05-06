@@ -45,7 +45,7 @@ def test_integrals(mol_name, func, benchmark):
 @pytest.mark.skipif(is_mem_limited(), reason="Not enough host memory!")
 def test_minimise_ks(benchmark, mol_name):
     # TODO: investigate test failure with cpu backend and float32
-    from jax.experimental import enable_x64
+    from jax import enable_x64
 
     with enable_x64(True):
         mol = molecule(mol_name)

@@ -29,7 +29,7 @@ class Primitive(eqx.Module):
 
         for name, shape, dtype in zip(names, shapes, dtypes):
             value = getattr(self, name)
-            if value.shape != shape or not jnp.issubdtype(value, dtype):
+            if value.shape != shape or not jnp.issubdtype(value.dtype, dtype):
                 raise ValueError(
                     f"Invalid value for {name}.\n"
                     f"Expecting {dtype} array with shape {shape}. "

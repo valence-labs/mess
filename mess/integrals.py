@@ -195,11 +195,20 @@ nuclear_primitives = jit(_nuclear_primitives)
 
 @partial(jit, static_argnums=0)
 def nuclear_basis(basis: Basis):
+    (ii, cl, lhs), (jj, cr, rhs) = basis_iter(basis)
+
     def n(atomic_number, position):
         def op(pi, pj):
             return atomic_number * _nuclear_primitives(pi, pj, position)
 
-        return integrate(basis, op)
+        aij = cl * cr * vmap(op)(lhs, rhs)
+        A = jnp.zeros((basis.num_primitives, basis.num_primitives))
+        A = A.at[ii, jj].set(aij)
+        A = A + A.T - jnp.diag(jnp.diag(A))
+        index = basis.orbital_index.reshape(1, basis.num_primitives)
+        out = segment_sum(A, index, num_segments=basis.num_orbitals)
+        out = segment_sum(out.T, index, num_segments=basis.num_orbitals)
+        return out
 
     return vmap(n)(basis.structure.atomic_number, basis.structure.position)
 
