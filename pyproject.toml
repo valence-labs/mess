@@ -68,7 +68,8 @@ filterwarnings = [
   "error",
   'ignore:Since PySCF\-2\.3, B3LYP \(and B3P86\) are changed.*:UserWarning',
   'ignore:Function mol\.dumps drops attribute spin.*:UserWarning',
-  'ignore:scatter inputs have incompatible types.*:FutureWarning'
+  'ignore:scatter inputs have incompatible types.*:FutureWarning',
+  'ignore::ResourceWarning'
 ]
 
 [tool.ruff]
