@@ -33,6 +33,7 @@ def test_energy(inputs, basis_name, mol):
         basis = basisset(mol, basis_name)
         scfmol = to_pyscf(mol, basis_name=basis_name)
         s = dft.RKS(scfmol, xc=scfxc)
+        s.chkfile = ""
         s.kernel()
         P = np.asarray(s.make_rdm1())
 

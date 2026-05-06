@@ -46,6 +46,7 @@ def test_gto(basis_name, spherical, mol):
 
         # Density Matrix
         mf = mol.RKS()
+        mf.chkfile = ""
         mf.kernel()
         C = jnp.array(mf.mo_coeff)
         P = basis.density_matrix(C)
