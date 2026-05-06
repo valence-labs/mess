@@ -3,20 +3,29 @@
 from functools import partial
 
 import jax.numpy as jnp
-from jax import jit
+from jax import jit, vmap
+from jax.ops import segment_sum
 
-from mess.basis import Basis
-from mess.integrals import integrate
+from mess.basis import Basis, basis_iter
 from mess.primitive import Primitive, product
 from mess.types import FloatNxN
 
 
 @partial(jit, static_argnums=0)
 def overlap_basis_zeropad(basis: Basis) -> FloatNxN:
+    (ii, cl, lhs), (jj, cr, rhs) = basis_iter(basis)
+
     def op(a, b):
         return _overlap_primitives_zeropad(a, b, basis.max_L)
 
-    return integrate(basis, op)
+    aij = cl * cr * vmap(op)(lhs, rhs)
+    A = jnp.zeros((basis.num_primitives, basis.num_primitives))
+    A = A.at[ii, jj].set(aij)
+    A = A + A.T - jnp.diag(jnp.diag(A))
+    index = basis.orbital_index.reshape(1, basis.num_primitives)
+    out = segment_sum(A, index, num_segments=basis.num_orbitals)
+    out = segment_sum(out.T, index, num_segments=basis.num_orbitals)
+    return out
 
 
 @partial(jit, static_argnums=2)

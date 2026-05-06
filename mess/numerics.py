@@ -10,7 +10,7 @@ from jaxtyping import Array
 
 
 def apply_fpcast(v: Array, dtype: np.dtype):
-    if isinstance(v, jnp.ndarray) and np.issubdtype(v, np.floating):
+    if isinstance(v, jnp.ndarray) and np.issubdtype(v.dtype, np.floating):
         return v.astype(dtype)
 
     return v
