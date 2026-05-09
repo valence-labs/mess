@@ -37,7 +37,7 @@ dynamic = ["version"]
 [project.optional-dependencies]
 gpu = ["jax[cuda12]"]
 dev = [
-  "jupyter-book",
+  "jupyter-book<2",
   "tqdm",
   "ipywidgets",
   "pytest",
