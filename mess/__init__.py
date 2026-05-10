@@ -14,10 +14,18 @@ except PackageNotFoundError:  # Package is not installed
     __version__ = "0.0.0.dev0"
 
 from mess.basis import basisset
-from mess.hamiltonian import Hamiltonian, minimise
-from mess.structure import molecule
+from mess.hamiltonian import Hamiltonian, UHamiltonian, minimise, uminimise
+from mess.structure import molecule, Structure
 
-__all__ = ["molecule", "Hamiltonian", "minimise", "basisset"]
+__all__ = [
+    "molecule",
+    "Structure",
+    "Hamiltonian",
+    "UHamiltonian",
+    "minimise",
+    "uminimise",
+    "basisset",
+]
 
 
 def parse_bool(value: str) -> bool:

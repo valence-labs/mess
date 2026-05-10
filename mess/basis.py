@@ -44,9 +44,25 @@ class Basis(eqx.Module):
 
     @property
     def occupancy(self) -> FloatN:
-        # Assumes uncharged systems in restricted Kohn-Sham
+        """Restricted occupancy: 2 electrons per orbital until filled."""
         occ = jnp.full(self.num_orbitals, 2.0)
         mask = occ.cumsum() > self.structure.num_electrons
+        occ = jnp.where(mask, 0.0, occ)
+        return occ
+
+    @property
+    def occupancy_alpha(self) -> FloatN:
+        """Alpha spin occupancy: 1 electron per orbital until n_alpha filled."""
+        occ = jnp.full(self.num_orbitals, 1.0)
+        mask = occ.cumsum() > self.structure.n_alpha
+        occ = jnp.where(mask, 0.0, occ)
+        return occ
+
+    @property
+    def occupancy_beta(self) -> FloatN:
+        """Beta spin occupancy: 1 electron per orbital until n_beta filled."""
+        occ = jnp.full(self.num_orbitals, 1.0)
+        mask = occ.cumsum() > self.structure.n_beta
         occ = jnp.where(mask, 0.0, occ)
         return occ
 
@@ -67,7 +83,7 @@ class Basis(eqx.Module):
         return df
 
     def density_matrix(self, C: FloatNxN) -> FloatNxN:
-        """Evaluate the density matrix from the molecular orbital coefficients
+        """Evaluate the restricted density matrix from MO coefficients.
 
         Args:
             C (FloatNxN): the molecular orbital coefficients
@@ -76,6 +92,28 @@ class Basis(eqx.Module):
             FloatNxN: the density matrix.
         """
         return jnp.einsum("k,ik,jk->ij", self.occupancy, C, C)
+
+    def density_matrix_alpha(self, C: FloatNxN) -> FloatNxN:
+        """Evaluate the alpha spin density matrix from MO coefficients.
+
+        Args:
+            C (FloatNxN): the alpha molecular orbital coefficients
+
+        Returns:
+            FloatNxN: the alpha density matrix.
+        """
+        return jnp.einsum("k,ik,jk->ij", self.occupancy_alpha, C, C)
+
+    def density_matrix_beta(self, C: FloatNxN) -> FloatNxN:
+        """Evaluate the beta spin density matrix from MO coefficients.
+
+        Args:
+            C (FloatNxN): the beta molecular orbital coefficients
+
+        Returns:
+            FloatNxN: the beta density matrix.
+        """
+        return jnp.einsum("k,ik,jk->ij", self.occupancy_beta, C, C)
 
     @jit
     def __call__(self, pos: FloatNx3) -> FloatNxM:

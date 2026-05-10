@@ -21,10 +21,14 @@ from mess.xcfunctional import (
     gga_correlation_lyp,
     gga_correlation_pbe,
     gga_exchange_b88,
+    gga_exchange_b88_spinpol,
     gga_exchange_pbe,
+    gga_exchange_pbe_spinpol,
     lda_correlation_vwn,
     lda_exchange,
+    lda_exchange_spinpol,
 )
+from mess.initial_guess import symmetry_broken_guess
 
 xcstr = Literal["lda", "pbe", "pbe0", "b3lyp", "hfx"]
 IntegralBackend = Literal["mess", "pyscf_cart", "pyscf_sph"]
@@ -289,3 +293,294 @@ def minimise(
     E_elec = H(P)
     E_total = E_elec + nuclear_energy(H.basis.structure)
     return E_total, C, sol
+
+
+# =============================================================================
+# Unrestricted (spin-polarized) implementations
+# =============================================================================
+
+
+class UnrestrictedHartreeFockExchange(eqx.Module):
+    """Hartree-Fock exchange for unrestricted calculations."""
+
+    two_electron: TwoElectron
+
+    def __init__(self, two_electron: TwoElectron):
+        self.two_electron = two_electron
+
+    def __call__(self, P_alpha: FloatNxN, P_beta: FloatNxN) -> ScalarLike:
+        """Compute HF exchange energy for alpha and beta densities."""
+        K_alpha = self.two_electron.exchange(P_alpha)
+        K_beta = self.two_electron.exchange(P_beta)
+        # Factor of 0.5 (not 0.25) because each spin density is already separate
+        return -0.5 * (jnp.sum(P_alpha * K_alpha) + jnp.sum(P_beta * K_beta))
+
+
+class ULDA(eqx.Module):
+    """Unrestricted LDA functional."""
+
+    basis: Basis
+    mesh: Mesh
+
+    def __init__(self, basis: Basis):
+        self.basis = basis
+        self.mesh = xcmesh_from_pyscf(basis.structure)
+
+    def __call__(self, P_alpha: FloatNxN, P_beta: FloatNxN) -> ScalarLike:
+        rho_a = density(self.basis, self.mesh, P_alpha)
+        rho_b = density(self.basis, self.mesh, P_beta)
+        rho_total = rho_a + rho_b
+
+        # Spin polarization with safe division (avoids NaN gradients)
+        zeta = (rho_a - rho_b) / (rho_total + 1e-15)
+        zeta = jnp.clip(zeta, -1.0, 1.0)
+
+        # Exchange (spin-polarized)
+        eps_x = lda_exchange_spinpol(rho_a, rho_b)
+
+        # Correlation (with spin polarization)
+        eps_c = lda_correlation_vwn(rho_total, zeta=zeta)
+
+        E_xc = jnp.einsum("i,i,i", self.mesh.weights, rho_total, eps_x + eps_c)
+        return E_xc
+
+
+class UPBE(eqx.Module):
+    """Unrestricted PBE functional."""
+
+    basis: Basis
+    mesh: Mesh
+
+    def __init__(self, basis: Basis):
+        self.basis = basis
+        self.mesh = xcmesh_from_pyscf(basis.structure)
+
+    def __call__(self, P_alpha: FloatNxN, P_beta: FloatNxN) -> ScalarLike:
+        rho_a, grad_rho_a = density_and_grad(self.basis, self.mesh, P_alpha)
+        rho_b, grad_rho_b = density_and_grad(self.basis, self.mesh, P_beta)
+        rho_total = rho_a + rho_b
+        grad_rho_total = grad_rho_a + grad_rho_b
+
+        # Spin polarization with safe division (avoids NaN gradients)
+        zeta = (rho_a - rho_b) / (rho_total + 1e-15)
+        zeta = jnp.clip(zeta, -1.0, 1.0)
+
+        # Exchange (spin-polarized)
+        eps_x = gga_exchange_pbe_spinpol(rho_a, rho_b, grad_rho_a, grad_rho_b)
+
+        # Correlation (with spin polarization)
+        eps_c = gga_correlation_pbe(rho_total, grad_rho_total, zeta=zeta)
+
+        E_xc = jnp.einsum("i,i,i", self.mesh.weights, rho_total, eps_x + eps_c)
+        return E_xc
+
+
+class UPBE0(eqx.Module):
+    """Unrestricted PBE0 hybrid functional."""
+
+    basis: Basis
+    mesh: Mesh
+    hfx: UnrestrictedHartreeFockExchange
+
+    def __init__(self, basis: Basis, two_electron: TwoElectron):
+        self.basis = basis
+        self.mesh = xcmesh_from_pyscf(basis.structure)
+        self.hfx = UnrestrictedHartreeFockExchange(two_electron)
+
+    def __call__(self, P_alpha: FloatNxN, P_beta: FloatNxN) -> ScalarLike:
+        rho_a, grad_rho_a = density_and_grad(self.basis, self.mesh, P_alpha)
+        rho_b, grad_rho_b = density_and_grad(self.basis, self.mesh, P_beta)
+        rho_total = rho_a + rho_b
+        grad_rho_total = grad_rho_a + grad_rho_b
+
+        # Spin polarization with safe division (avoids NaN gradients)
+        zeta = (rho_a - rho_b) / (rho_total + 1e-15)
+        zeta = jnp.clip(zeta, -1.0, 1.0)
+
+        eps_x = 0.75 * gga_exchange_pbe_spinpol(rho_a, rho_b, grad_rho_a, grad_rho_b)
+        eps_c = gga_correlation_pbe(rho_total, grad_rho_total, zeta=zeta)
+
+        E_xc = jnp.einsum("i,i,i", self.mesh.weights, rho_total, eps_x + eps_c)
+        return E_xc + 0.25 * self.hfx(P_alpha, P_beta)
+
+
+class UB3LYP(eqx.Module):
+    """Unrestricted B3LYP hybrid functional."""
+
+    basis: Basis
+    mesh: Mesh
+    hfx: UnrestrictedHartreeFockExchange
+
+    def __init__(self, basis: Basis, two_electron: TwoElectron):
+        self.basis = basis
+        self.mesh = xcmesh_from_pyscf(basis.structure)
+        self.hfx = UnrestrictedHartreeFockExchange(two_electron)
+
+    def __call__(self, P_alpha: FloatNxN, P_beta: FloatNxN) -> ScalarLike:
+        rho_a, grad_rho_a = density_and_grad(self.basis, self.mesh, P_alpha)
+        rho_b, grad_rho_b = density_and_grad(self.basis, self.mesh, P_beta)
+        rho_total = rho_a + rho_b
+
+        # Spin polarization with safe division (avoids NaN gradients)
+        zeta = (rho_a - rho_b) / (rho_total + 1e-15)
+        zeta = jnp.clip(zeta, -1.0, 1.0)
+
+        # B3LYP exchange: 0.08*LDA + 0.72*B88
+        eps_x_lda = lda_exchange_spinpol(rho_a, rho_b)
+        eps_x_b88 = gga_exchange_b88_spinpol(rho_a, rho_b, grad_rho_a, grad_rho_b)
+        eps_x = 0.08 * eps_x_lda + 0.72 * eps_x_b88
+
+        # B3LYP correlation: 0.19*VWN + 0.81*LYP
+        vwn_c = (1 - 0.81) * lda_correlation_vwn(rho_total, zeta=zeta)
+        # Note: LYP correlation doesn't have simple spin-polarized form in original
+        # Using restricted LYP as approximation (common practice)
+        lyp_c = 0.81 * gga_correlation_lyp(rho_total, grad_rho_a + grad_rho_b)
+
+        E_xc = jnp.einsum("i,i,i", self.mesh.weights, rho_total, eps_x + vwn_c + lyp_c)
+        return E_xc + 0.2 * self.hfx(P_alpha, P_beta)
+
+
+def build_xcfunc_unrestricted(
+    xc_method: xcstr, basis: Basis, two_electron: Optional[TwoElectron] = None
+) -> eqx.Module:
+    """Build an unrestricted XC functional."""
+    if two_electron is None and xc_method in ("pbe0", "b3lyp"):
+        raise ValueError(
+            f"Hybrid functional {xc_method} requires providing TwoElectron integrals"
+        )
+
+    match xc_method:
+        case "lda":
+            return ULDA(basis)
+        case "pbe":
+            return UPBE(basis)
+        case "pbe0":
+            return UPBE0(basis, two_electron)
+        case "b3lyp":
+            return UB3LYP(basis, two_electron)
+        case "hfx":
+            return UnrestrictedHartreeFockExchange(two_electron)
+        case _:
+            methods = get_args(xcstr)
+            methods = ", ".join(methods)
+            msg = f"Unsupported exchange-correlation option: {xc_method}."
+            msg += f"\nMust be one of the following: {methods}"
+            raise ValueError(msg)
+
+
+class UHamiltonian(eqx.Module):
+    """Unrestricted Hamiltonian for spin-polarized calculations."""
+
+    X: FloatNxN
+    S: FloatNxN
+    H_core: FloatNxN
+    basis: Basis
+    two_electron: TwoElectron
+    xcfunc: eqx.Module
+
+    def __init__(
+        self,
+        basis: Basis,
+        ont: OrthNormTransform = symmetric,
+        xc_method: xcstr = "lda",
+        backend: IntegralBackend = "pyscf_sph",
+    ):
+        super().__init__()
+        self.basis = renorm(basis, backend) if backend != "mess" else basis
+        one_elec = OneElectron(basis, backend=backend)
+        self.S = one_elec.overlap
+        self.X = ont(self.S)
+        self.H_core = one_elec.kinetic + one_elec.nuclear
+        self.two_electron = TwoElectron(basis, backend=backend)
+        self.xcfunc = build_xcfunc_unrestricted(xc_method, self.basis, self.two_electron)
+
+    def __call__(self, P_alpha: FloatNxN, P_beta: FloatNxN) -> ScalarLike:
+        """Compute electronic energy from alpha and beta density matrices."""
+        P_total = P_alpha + P_beta
+
+        # One-electron energy
+        E_core = jnp.sum(self.H_core * P_total)
+
+        # Coulomb energy from total density
+        J = self.two_electron.coloumb(P_total)
+        E_J = 0.5 * jnp.sum(J * P_total)
+
+        # Exchange-correlation energy
+        E_xc = self.xcfunc(P_alpha, P_beta)
+
+        return E_core + E_J + E_xc
+
+    def orthonormalise(self, Z: FloatNxN) -> FloatNxN:
+        """Orthonormalize coefficient matrix."""
+        C = self.X @ jnl.qr(Z).Q
+        return C
+
+
+@partial(jax.jit, static_argnames=("max_steps",))
+def _uminimise_inner(
+    H: UHamiltonian,
+    Z_init: FloatNxN,
+    max_steps: Optional[int] = None,
+) -> Tuple[ScalarLike, FloatNxN, FloatNxN, optx.Solution]:
+    """Inner JIT-compiled optimization loop for unrestricted SCF."""
+    n = H.basis.num_orbitals
+
+    def f(Z_concat, _):
+        # Split concatenated matrix into alpha and beta
+        Z_alpha = Z_concat[:, :n]
+        Z_beta = Z_concat[:, n:]
+
+        C_alpha = H.orthonormalise(Z_alpha)
+        C_beta = H.orthonormalise(Z_beta)
+
+        P_alpha = H.basis.density_matrix_alpha(C_alpha)
+        P_beta = H.basis.density_matrix_beta(C_beta)
+
+        return H(P_alpha, P_beta)
+
+    solver = optx.BestSoFarMinimiser(optx.BFGS(atol=1e-6, rtol=1e-5))
+
+    sol = optx.minimise(f, solver, Z_init, max_steps=max_steps)
+
+    # Extract final coefficients
+    Z_alpha = sol.value[:, :n]
+    Z_beta = sol.value[:, n:]
+    C_alpha = H.orthonormalise(Z_alpha)
+    C_beta = H.orthonormalise(Z_beta)
+
+    P_alpha = H.basis.density_matrix_alpha(C_alpha)
+    P_beta = H.basis.density_matrix_beta(C_beta)
+
+    E_elec = H(P_alpha, P_beta)
+    E_total = E_elec + nuclear_energy(H.basis.structure)
+
+    return E_total, C_alpha, C_beta, sol
+
+
+def uminimise(
+    H: UHamiltonian,
+    max_steps: Optional[int] = None,
+) -> Tuple[ScalarLike, FloatNxN, FloatNxN, optx.Solution]:
+    """Solve for the electronic coefficients that minimise the unrestricted energy.
+
+    Args:
+        H: The unrestricted Hamiltonian.
+        max_steps: Maximum number of minimizer steps.
+
+    Returns:
+        Tuple containing:
+            - total energy in atomic units
+            - alpha coefficient matrix C_alpha
+            - beta coefficient matrix C_beta
+            - the optimistix.Solution object
+    """
+    # Use symmetry-broken guess for better convergence on open-shell systems
+    # Computed outside JIT since it may use random numbers
+    C_alpha, C_beta = symmetry_broken_guess(
+        H.H_core, H.X,
+        H.basis.structure.n_alpha,
+        H.basis.structure.n_beta,
+    )
+    Z_init = jnp.concatenate([C_alpha, C_beta], axis=1)
+
+    return _uminimise_inner(H, Z_init, max_steps)
